@@ -1,6 +1,9 @@
 import streamlit as st
 import json
 import plotly.graph_objects as go
+import urllib.request
+import base64
+import ssl
 
 # 1. Configuração da página
 st.set_page_config(page_title="Insight Analysis | Scout Pro", layout="wide", initial_sidebar_state="expanded")
@@ -30,7 +33,6 @@ st.markdown("""
     .progress-bg { background-color: #333; height: 4px; border-radius: 2px; width: 100%;}
     .progress-fill { background-color: #6f42c1; height: 100%; border-radius: 2px;}
     
-    /* REGRAS PARA QUANDO EXPORTAR PARA PDF */
     @media print {
         section[data-testid="stSidebar"] { display: none !important; }
         header { display: none !important; }
@@ -40,7 +42,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. BARRA LATERAL (UPLOAD E DETALHES)
+# 3. BARRA LATERAL
 st.sidebar.markdown("<h2 style='color: #6f42c1; font-weight: 800; text-align: center;'>MOTOR DE SCOUT</h2>", unsafe_allow_html=True)
 ficheiro_upload = st.sidebar.file_uploader("📥 Arraste o ficheiro JSON de Lineups:", type=['json'])
 
@@ -55,7 +57,6 @@ with col_fora:
     input_fora = st.text_input("Equipa Fora:", "Chile")
     input_golos_fora = st.text_input("Golos Fora:", "1")
 
-# BOTÃO DE EXPORTAR PDF
 st.sidebar.divider()
 st.sidebar.markdown("""
     <button onclick="window.print()" style="width: 100%; background-color: #6f42c1; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
@@ -63,7 +64,7 @@ st.sidebar.markdown("""
     </button>
 """, unsafe_allow_html=True)
 
-# 4. FUNÇÃO INTELIGENTE DE DADOS
+# 4. FUNÇÕES DE DADOS E IMAGEM (Anti-Bloqueio)
 @st.cache_data
 def carregar_dados(ficheiro):
     jogadores_dict = {}
@@ -80,9 +81,24 @@ def carregar_dados(ficheiro):
     except: pass
     return jogadores_dict
 
+@st.cache_data
+def obter_imagem_jogador(url):
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        # O Python disfarça-se de navegador Chrome para o Sofascore não bloquear
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, context=ctx, timeout=3) as response:
+            img_data = response.read()
+            return "data:image/png;base64," + base64.b64encode(img_data).decode('utf-8')
+    except:
+        # Imagem de perfil padrão se o jogador não tiver foto
+        return "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
+
 jogadores = carregar_dados(ficheiro_upload)
 
-# 5. CABEÇALHO DA EMPRESA (LOGO)
+# 5. CABEÇALHO DA EMPRESA
 NOME_DO_FICHEIRO_DA_LOGO = "logo.png" 
 col_logo, col_titulo = st.columns([1, 10])
 with col_logo:
@@ -96,7 +112,7 @@ if not jogadores:
     st.info("👈 Por favor, carregue o ficheiro JSON ou garanta que 'dados_jogadores.json' está na pasta.")
     st.stop()
 
-# 6. SELEÇÃO DE JOGADOR DINÂMICA
+# 6. SELEÇÃO DE JOGADOR
 st.sidebar.divider()
 lista_nomes = sorted(list(jogadores.keys()))
 indice_default = lista_nomes.index("Armando González") if "Armando González" in lista_nomes else 0
@@ -106,7 +122,6 @@ dados_atleta = jogadores[nome_escolhido]
 info = dados_atleta.get('player', {})
 stats = dados_atleta.get('statistics', {})
 
-# 7. CABEÇALHO DO JOGO DINÂMICO
 st.markdown(f"""
 <div class="match-header">
     <div class="tournament-name">🏆 {input_torneio}</div>
@@ -119,23 +134,25 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 8. PERFIL DO JOGADOR
+# 7. PERFIL DO JOGADOR COM IMAGEM SEGURA
 posicao = info.get('position', 'Atacante')
 camisola = dados_atleta.get('shirtNumber', '-')
 nota = stats.get('rating', 'S/N')
 minutos = stats.get('minutesPlayed', 0)
-foto_url = f"https://api.sofascore.app/api/v1/player/{info.get('id')}/image"
+
+# Buscando a foto pelo Backend
+foto_url_original = f"https://api.sofascore.app/api/v1/player/{info.get('id')}/image"
+foto_segura = obter_imagem_jogador(foto_url_original)
 
 try:
     n = float(nota)
     cor_nota = "#28a745" if n >= 7.0 else ("#ffcc00" if n >= 6.0 else "#dc3545")
 except: cor_nota = "#888"
 
-# AQUI ESTÁ A CORREÇÃO DA IMAGEM: referrerpolicy="no-referrer"
 st.markdown(f"""
 <div class="player-header">
     <div style="display:flex; align-items:center; gap:20px;">
-        <img src="{foto_url}" class="player-photo" referrerpolicy="no-referrer">
+        <img src="{foto_segura}" class="player-photo">
         <div>
             <div style="color:#aaa; font-size:12px; margin-bottom:5px;">⚽ Equipa</div>
             <h2 style="margin:0; font-size:26px;">{nome_escolhido}</h2>
@@ -154,7 +171,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 9. GRÁFICO DE RADAR
+# 8. GRÁFICO DE RADAR
 st.markdown("<h4 style='color:#666; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:0;'>📈 Radar de Desempenho</h4>", unsafe_allow_html=True)
 st.divider()
 categorias = ['Finalização', 'Passe', 'Drible', 'Defesa', 'Duelos', 'Físico']
@@ -170,7 +187,7 @@ fig = go.Figure(data=go.Scatterpolar(r=valores, theta=categorias, fill='toself',
 fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100], color='#333', gridcolor='#222', tickfont=dict(color='rgba(0,0,0,0)')), angularaxis=dict(color='#aaa', gridcolor='#222')), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=40, r=40, t=30, b=30), height=350)
 st.plotly_chart(fig, use_container_width=True)
 
-# 10. ESTATÍSTICAS DETALHADAS
+# 9. ESTATÍSTICAS DETALHADAS
 def mostrar_barra(label, valor, max_esperado=100):
     val_num = float(valor) if isinstance(valor, (int, float)) else 0
     percentagem = min((val_num / max_esperado) * 100, 100)
