@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 # 1. Configuração da página
 st.set_page_config(page_title="Insight Analysis | Scout Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS Premium
+# 2. CSS Premium & Configuração de Impressão (PDF)
 st.markdown("""
 <style>
     .stApp { background-color: #111111; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}
@@ -29,17 +29,24 @@ st.markdown("""
     .stat-val { font-weight: bold; color: white;}
     .progress-bg { background-color: #333; height: 4px; border-radius: 2px; width: 100%;}
     .progress-fill { background-color: #6f42c1; height: 100%; border-radius: 2px;}
+    
+    /* REGRAS PARA QUANDO EXPORTAR PARA PDF */
+    @media print {
+        section[data-testid="stSidebar"] { display: none !important; }
+        header { display: none !important; }
+        .stApp { background-color: #111111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stat-card, .player-header, .match-header { page-break-inside: avoid; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. BARRA LATERAL (UPLOAD E DETALHES DO JOGO)
+# 3. BARRA LATERAL (UPLOAD E DETALHES)
 st.sidebar.markdown("<h2 style='color: #6f42c1; font-weight: 800; text-align: center;'>MOTOR DE SCOUT</h2>", unsafe_allow_html=True)
 ficheiro_upload = st.sidebar.file_uploader("📥 Arraste o ficheiro JSON de Lineups:", type=['json'])
 
 st.sidebar.divider()
 st.sidebar.markdown("📝 **Detalhes da Partida**")
 input_torneio = st.sidebar.text_input("Torneio:", "Amigável Internacional")
-
 col_casa, col_fora = st.sidebar.columns(2)
 with col_casa:
     input_casa = st.text_input("Equipa Casa:", "México")
@@ -47,6 +54,14 @@ with col_casa:
 with col_fora:
     input_fora = st.text_input("Equipa Fora:", "Chile")
     input_golos_fora = st.text_input("Golos Fora:", "1")
+
+# BOTÃO DE EXPORTAR PDF
+st.sidebar.divider()
+st.sidebar.markdown("""
+    <button onclick="window.print()" style="width: 100%; background-color: #6f42c1; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        🖨️ Gerar Relatório PDF
+    </button>
+""", unsafe_allow_html=True)
 
 # 4. FUNÇÃO INTELIGENTE DE DADOS
 @st.cache_data
@@ -58,7 +73,6 @@ def carregar_dados(ficheiro):
         else:
             with open('dados_jogadores.json', 'r', encoding='utf-8') as f:
                 dados_j = json.load(f) 
-                
         if 'home' in dados_j and 'players' in dados_j['home']:
             for p in dados_j['home']['players']: jogadores_dict[p['player']['name']] = p
         if 'away' in dados_j and 'players' in dados_j['away']:
@@ -117,10 +131,11 @@ try:
     cor_nota = "#28a745" if n >= 7.0 else ("#ffcc00" if n >= 6.0 else "#dc3545")
 except: cor_nota = "#888"
 
+# AQUI ESTÁ A CORREÇÃO DA IMAGEM: referrerpolicy="no-referrer"
 st.markdown(f"""
 <div class="player-header">
     <div style="display:flex; align-items:center; gap:20px;">
-        <img src="{foto_url}" class="player-photo" onerror="this.src='https://via.placeholder.com/90/1a1a1a/ffffff?text=FOTO'">
+        <img src="{foto_url}" class="player-photo" referrerpolicy="no-referrer">
         <div>
             <div style="color:#aaa; font-size:12px; margin-bottom:5px;">⚽ Equipa</div>
             <h2 style="margin:0; font-size:26px;">{nome_escolhido}</h2>
@@ -142,7 +157,6 @@ st.markdown(f"""
 # 9. GRÁFICO DE RADAR
 st.markdown("<h4 style='color:#666; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:0;'>📈 Radar de Desempenho</h4>", unsafe_allow_html=True)
 st.divider()
-
 categorias = ['Finalização', 'Passe', 'Drible', 'Defesa', 'Duelos', 'Físico']
 valores = [
     min(stats.get('onTargetScoringAttempt', 0) * 25, 100),
@@ -152,19 +166,8 @@ valores = [
     min((stats.get('duelWon', 0) / max(stats.get('duelTotal', 1), 1)) * 100, 100),
     min(stats.get('minutesPlayed', 0), 100)
 ]
-
-fig = go.Figure(data=go.Scatterpolar(
-    r=valores,
-    theta=categorias,
-    fill='toself',
-    fillcolor='rgba(111, 66, 193, 0.4)',
-    line=dict(color='#6f42c1', width=2),
-    marker=dict(color='#d8b4fe', size=6)
-))
-fig.update_layout(
-    polar=dict(radialaxis=dict(visible=True, range=[0, 100], color='#333', gridcolor='#222', tickfont=dict(color='rgba(0,0,0,0)')), angularaxis=dict(color='#aaa', gridcolor='#222')),
-    showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=40, r=40, t=30, b=30), height=350
-)
+fig = go.Figure(data=go.Scatterpolar(r=valores, theta=categorias, fill='toself', fillcolor='rgba(111, 66, 193, 0.4)', line=dict(color='#6f42c1', width=2), marker=dict(color='#d8b4fe', size=6)))
+fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100], color='#333', gridcolor='#222', tickfont=dict(color='rgba(0,0,0,0)')), angularaxis=dict(color='#aaa', gridcolor='#222')), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=40, r=40, t=30, b=30), height=350)
 st.plotly_chart(fig, use_container_width=True)
 
 # 10. ESTATÍSTICAS DETALHADAS
@@ -182,13 +185,11 @@ with c1:
     precisao = round((stats.get('accuratePass', 0) / max(stats.get('totalPass', 1), 1)) * 100)
     html_passes += mostrar_barra("Precisão", f"{precisao}%", 100)
     st.markdown(html_passes + "</div>", unsafe_allow_html=True)
-    
     html_duelos = "<div class='stat-card'><div class='stat-card-title'>⚔️ Duelos</div>"
     html_duelos += mostrar_barra("Total", stats.get('duelTotal', 0), 15)
     html_duelos += mostrar_barra("Ganhos", stats.get('duelWon', 0), 15)
     html_duelos += mostrar_barra("Duelos Aéreos Ganhos", stats.get('aerialWon', 0), 10)
     st.markdown(html_duelos + "</div>", unsafe_allow_html=True)
-
 with c2:
     html_ataque = "<div class='stat-card'><div class='stat-card-title'>🎯 Ataque</div>"
     html_ataque += mostrar_barra("Golos", stats.get('goals', 0), 3)
@@ -196,10 +197,8 @@ with c2:
     html_ataque += mostrar_barra("Finalizações no Gol", stats.get('onTargetScoringAttempt', 0), 5)
     html_ataque += mostrar_barra("Toques na Bola", stats.get('touches', 0), 80)
     st.markdown(html_ataque + "</div>", unsafe_allow_html=True)
-    
     html_defesa = "<div class='stat-card'><div class='stat-card-title'>🛡️ Defesa</div>"
     html_defesa += mostrar_barra("Desarmes", stats.get('totalTackle', 0), 5)
     html_defesa += mostrar_barra("Interceptações", stats.get('interceptionWon', 0), 5)
     html_defesa += mostrar_barra("Afastamentos", stats.get('totalClearance', 0), 8)
     st.markdown(html_defesa + "</div>", unsafe_allow_html=True)
-    
