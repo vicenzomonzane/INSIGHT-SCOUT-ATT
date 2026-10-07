@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 # 1. Configuração da página
 st.set_page_config(page_title="Insight Analysis | Scout Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS Premium & Configuração de Impressão (PDF)
+# 2. CSS Premium
 st.markdown("""
 <style>
     .stApp { background-color: #111111; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}
@@ -116,26 +116,25 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 7. PERFIL DO JOGADOR COM PROXY DE IMAGEM
+# 7. PERFIL DO JOGADOR COM CARREGAMENTO INVISÍVEL E SILHUETA DE EMERGÊNCIA
 posicao = info.get('position', 'Atacante')
 camisola = dados_atleta.get('shirtNumber', '-')
 nota = stats.get('rating', 'S/N')
 minutos = stats.get('minutesPlayed', 0)
 
-# Links de Proxy para contornar o bloqueio do Sofascore na nuvem
-foto_original = f"https://api.sofascore.app/api/v1/player/{info.get('id')}/image"
-foto_proxy_1 = f"https://wsrv.nl/?url=api.sofascore.app/api/v1/player/{info.get('id')}/image"
-foto_proxy_2 = f"https://api.allorigins.win/raw?url={foto_original}"
+foto_sofascore = f"https://api.sofascore.app/api/v1/player/{info.get('id')}/image"
+foto_silhueta = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
 
 try:
     n = float(nota)
     cor_nota = "#28a745" if n >= 7.0 else ("#ffcc00" if n >= 6.0 else "#dc3545")
 except: cor_nota = "#888"
 
+# INSTRUÇÃO VITAL: referrerpolicy="no-referrer" diz ao navegador para ocultar a sua origem
 st.markdown(f"""
 <div class="player-header">
     <div style="display:flex; align-items:center; gap:20px;">
-        <img src="{foto_proxy_1}" onerror="this.onerror=null; this.src='{foto_proxy_2}';" class="player-photo" referrerpolicy="no-referrer">
+        <img src="{foto_sofascore}" onerror="this.onerror=null; this.src='{foto_silhueta}';" class="player-photo" referrerpolicy="no-referrer" loading="lazy">
         <div>
             <div style="color:#aaa; font-size:12px; margin-bottom:5px;">⚽ Equipa</div>
             <h2 style="margin:0; font-size:26px;">{nome_escolhido}</h2>
