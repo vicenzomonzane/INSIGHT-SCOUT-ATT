@@ -1,9 +1,6 @@
 import streamlit as st
 import json
 import plotly.graph_objects as go
-import urllib.request
-import base64
-import ssl
 
 # 1. Configuração da página
 st.set_page_config(page_title="Insight Analysis | Scout Pro", layout="wide", initial_sidebar_state="expanded")
@@ -64,7 +61,7 @@ st.sidebar.markdown("""
     </button>
 """, unsafe_allow_html=True)
 
-# 4. FUNÇÕES DE DADOS E IMAGEM (Anti-Bloqueio)
+# 4. FUNÇÃO INTELIGENTE DE DADOS
 @st.cache_data
 def carregar_dados(ficheiro):
     jogadores_dict = {}
@@ -80,21 +77,6 @@ def carregar_dados(ficheiro):
             for p in dados_j['away']['players']: jogadores_dict[p['player']['name']] = p
     except: pass
     return jogadores_dict
-
-@st.cache_data
-def obter_imagem_jogador(url):
-    try:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        # O Python disfarça-se de navegador Chrome para o Sofascore não bloquear
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        with urllib.request.urlopen(req, context=ctx, timeout=3) as response:
-            img_data = response.read()
-            return "data:image/png;base64," + base64.b64encode(img_data).decode('utf-8')
-    except:
-        # Imagem de perfil padrão se o jogador não tiver foto
-        return "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
 
 jogadores = carregar_dados(ficheiro_upload)
 
@@ -134,15 +116,16 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 7. PERFIL DO JOGADOR COM IMAGEM SEGURA
+# 7. PERFIL DO JOGADOR COM PROXY DE IMAGEM
 posicao = info.get('position', 'Atacante')
 camisola = dados_atleta.get('shirtNumber', '-')
 nota = stats.get('rating', 'S/N')
 minutos = stats.get('minutesPlayed', 0)
 
-# Buscando a foto pelo Backend
-foto_url_original = f"https://api.sofascore.app/api/v1/player/{info.get('id')}/image"
-foto_segura = obter_imagem_jogador(foto_url_original)
+# Links de Proxy para contornar o bloqueio do Sofascore na nuvem
+foto_original = f"https://api.sofascore.app/api/v1/player/{info.get('id')}/image"
+foto_proxy_1 = f"https://wsrv.nl/?url=api.sofascore.app/api/v1/player/{info.get('id')}/image"
+foto_proxy_2 = f"https://api.allorigins.win/raw?url={foto_original}"
 
 try:
     n = float(nota)
@@ -152,7 +135,7 @@ except: cor_nota = "#888"
 st.markdown(f"""
 <div class="player-header">
     <div style="display:flex; align-items:center; gap:20px;">
-        <img src="{foto_segura}" class="player-photo">
+        <img src="{foto_proxy_1}" onerror="this.onerror=null; this.src='{foto_proxy_2}';" class="player-photo" referrerpolicy="no-referrer">
         <div>
             <div style="color:#aaa; font-size:12px; margin-bottom:5px;">⚽ Equipa</div>
             <h2 style="margin:0; font-size:26px;">{nome_escolhido}</h2>
